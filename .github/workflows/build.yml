@@ -4,8 +4,10 @@ on:
   push:
     branches:
       - master
+      - main
     tags:
       - 'v*'
+  workflow_dispatch:
 
 jobs:
   build:
@@ -33,7 +35,7 @@ jobs:
 
       # Android Signing (Optional: Only if secrets are set)
       - name: Create key.properties and keystore
-        if: ${{ secrets.KEYSTORE_BASE64 != '' }}
+        if: secrets.KEYSTORE_BASE64 != ''
         run: |
           echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > android/app/keystore.jks
           echo "storePassword=${{ secrets.KEYSTORE_PASSWORD }}" > android/key.properties
