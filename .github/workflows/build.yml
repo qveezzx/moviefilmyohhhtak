@@ -1,0 +1,67 @@
+name: Build & Release
+
+on:
+  push:
+    branches:
+      - master
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    name: Build Artifacts
+    runs-on: macos-latest # Using macOS for both to keep artifacts in one job or parallelize later
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: "temurin"
+          java-version: "17"
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      - name: Get Dependencies
+        run: flutter pub get
+
+      # Android Build
+      - name: Build APK
+        run: flutter build apk --release --split-per-abi
+
+      # iOS Build
+      - name: Build iOS
+        run: flutter build ios --release --no-codesign
+
+      - name: Create IPA
+        run: |
+          mkdir -p Payload
+          mv build/ios/iphoneos/Runner.app Payload/
+          zip -qq -r -9 purevideo-ios.ipa Payload
+          rm -rf Payload
+
+      # Rename artifacts for clarity
+      - name: Prepare Artifacts
+        run: |
+          mv build/app/outputs/flutter-apk/app-release.apk purevideo-android.apk
+          # If split-per-abi is used, you might want to pick one or all.
+          # For simplicity, we'll just take the universal one or the first one found.
+          cp build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk purevideo-android-v7a.apk || true
+          cp build/app/outputs/flutter-apk/app-arm64-v8a-release.apk purevideo-android-v8a.apk || true
+
+      - name: Create Release
+        uses: ncipollo/release-action@v1
+        with:
+          artifacts: "purevideo-android.apk,purevideo-android-v7a.apk,purevideo-android-v8a.apk,purevideo-ios.ipa"
+          tag: "build-${{ github.run_number }}"
+          name: "Release build-${{ github.run_number }}"
+          body: "Automatycznie wygenerowana paczka z komitu: ${{ github.sha }}"
+          token: ${{ secrets.GITHUB_TOKEN }}
+          allowUpdates: true
+          makeLatest: true
